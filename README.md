@@ -1,7 +1,4 @@
 
----
-
-```markdown
 # Transcripción Pacientes - Backend
 
 Este es el backend de la aplicación **Transcripción Pacientes**, que se encarga de manejar las solicitudes de transcripción de audio en tiempo real utilizando **Google Cloud Speech-to-Text**. El backend está desarrollado en **Python** usando **FastAPI** y se espera desplegar en **Heroku**.
