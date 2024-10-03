@@ -30,6 +30,7 @@ class Transcriber:
             audio_channel_count=2,
             enable_separate_recognition_per_channel=True,
             enable_speaker_diarization=False,
+            enable_automatic_punctuation=True,
             model='default',
             use_enhanced=True
         )
