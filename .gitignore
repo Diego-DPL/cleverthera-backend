@@ -1,0 +1,16 @@
+# Evitar el entorno virtual de Python
+venv/
+__pycache__/
+*.pyc
+
+# Ignorar módulos de Node.js (si usas Node en alguna parte)
+node_modules/
+dist/
+
+# Archivos innecesarios del sistema
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Archivos de configuración o secretos
+.env
