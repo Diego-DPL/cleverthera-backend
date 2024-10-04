@@ -1,5 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from utils.transcription import Transcriber
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import os
 import json
@@ -25,8 +26,23 @@ else:
 #print("GOOGLE_APPLICATION_CREDENTIALS:", os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 #eliminar credentials=credentials de la función websocket_endpoint
 
-
 app = FastAPI()
+
+# Habilitar CORS para permitir solicitudes desde el frontend en Vercel
+origins = [
+    "https://www.cleverthera.com",  # mi domiino
+    "https://cleverthera.com",  # mi dominio
+    "http://localhost",  # Para pruebas locales si es necesario
+    "http://localhost:3000",  # Si estás probando localmente en un puerto específico
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.websocket("/ws/audio")
 async def websocket_endpoint(websocket: WebSocket, credentials=credentials):
