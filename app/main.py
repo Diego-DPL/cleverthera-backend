@@ -1,5 +1,4 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from utils.transcription import Transcriber
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import os
@@ -7,45 +6,43 @@ import json
 from google.oauth2 import service_account
 from dotenv import load_dotenv
 
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from .utils.transcription import Transcriber
+
 load_dotenv()
 
 # Cargar las credenciales de Google Cloud desde una variable de entorno
-credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-if credentials_json:
-    # Convertir el string JSON a un objeto de credenciales
-    credentials_info = json.loads(credentials_json)
-    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+if credentials_path and os.path.exists(credentials_path):
+    # Cargar las credenciales desde el archivo JSON
+    credentials = service_account.Credentials.from_service_account_file(credentials_path)
 else:
-    raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS")
-
-# Cargar las credenciales de Google Cloud desde un archivo .env
-#from dotenv import load_dotenv
-#load_dotenv()
-#import os
-#print("GOOGLE_APPLICATION_CREDENTIALS:", os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
-#eliminar credentials=credentials de la función websocket_endpoint
+    raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o el archivo no existe")
 
 app = FastAPI()
 
 # Habilitar CORS para permitir solicitudes desde el frontend en Vercel
 origins = [
-    "https://www.cleverthera.com",  # mi domiino
-    "https://cleverthera.com",  # mi dominio
-    "http://localhost",  # Para pruebas locales si es necesario
-    "http://localhost:3000",  # Si estás probando localmente en un puerto específico
+    "https://www.cleverthera.com",  # tu dominio
+    "https://cleverthera.com",  # tu dominio
+    #"http://localhost",  # Para pruebas locales si es necesario
+    #"http://localhost:3000",  # Si estás probando localmente en un puerto específico
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite cualquier origen (temporalmente para pruebas)
+    allow_origins=origins,  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.websocket("/ws/audio")
-async def websocket_endpoint(websocket: WebSocket, credentials=credentials):
+async def websocket_endpoint(websocket: WebSocket):
+    print("llamada a la API")
     await websocket.accept()
     message_queue = asyncio.Queue()
     transcriber = Transcriber(message_queue)
@@ -54,6 +51,7 @@ async def websocket_endpoint(websocket: WebSocket, credentials=credentials):
         while True:
             data = await websocket.receive_bytes()
             transcriber.transcribe_audio_chunk(data)
+            print("enviando datos al cliente")
     except WebSocketDisconnect:
         print("Cliente desconectado")
         transcriber.close()
