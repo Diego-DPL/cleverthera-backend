@@ -14,9 +14,11 @@ load_dotenv()
 
 # Cargar las credenciales desde la variable de entorno
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+print(f"GOOGLE_APPLICATION_CREDENTIALS")
 
 if credentials_json:
     try:
+        print("Cargando credenciales de Google")
         # Escribir las credenciales en un archivo temporal
         credentials_path = "/tmp/credentials.json"
         with open(credentials_path, "w") as f:
@@ -30,6 +32,7 @@ if credentials_json:
     except Exception as e:
         raise ValueError(f"Error al cargar las credenciales de Google: {str(e)}")
 else:
+    print("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o está vacía")
     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o está vacía")
 
 # Prueba la conexión con Google Speech API
@@ -48,10 +51,16 @@ app = FastAPI()
 async def websocket_endpoint(websocket: WebSocket):
     print("llamando a la API")
     await websocket.accept()
+    print("Cliente conectado")
     message_queue = asyncio.Queue()
+    print("lista de mensajes")
     transcriber = Transcriber(message_queue)
+    print("Transcriber creado")
+
     try:
         send_task = asyncio.create_task(send_messages(websocket, message_queue))
+        print("task creada")
+        
         while True:
             data = await websocket.receive_bytes()
             transcriber.transcribe_audio_chunk(data)
