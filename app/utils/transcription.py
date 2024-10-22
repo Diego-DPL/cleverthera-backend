@@ -11,8 +11,9 @@ speaker_mapping = {
 }
 
 class Transcriber:
-    def __init__(self, message_queue: asyncio.Queue):
-        self.client = speech.SpeechClient()
+    def __init__(self, message_queue: asyncio.Queue, credentials):
+        # Se pasan las credenciales al cliente de Google Speech
+        self.client = speech.SpeechClient(credentials=credentials)
         self.requests_queue = queue.Queue()
         self.message_queue = message_queue
         self.is_active = True

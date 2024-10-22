@@ -50,7 +50,7 @@ async def websocket_endpoint(websocket: WebSocket):
     print("Cliente conectado")
     message_queue = asyncio.Queue()
     print("Lista de mensajes")
-    transcriber = Transcriber(message_queue)
+    transcriber = Transcriber(message_queue, credentials)
     print("Transcriber creado")
 
     try:
