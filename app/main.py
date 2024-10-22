@@ -14,7 +14,7 @@ load_dotenv()
 
 # Cargar las credenciales desde la variable de entorno
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-print(f"GOOGLE_APPLICATION_CREDENTIALS")
+print(f"Contenido de GOOGLE_APPLICATION_CREDENTIALS: {credentials_json}")
 
 if credentials_json:
     try:
@@ -60,7 +60,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         send_task = asyncio.create_task(send_messages(websocket, message_queue))
         print("task creada")
-        
+
         while True:
             data = await websocket.receive_bytes()
             transcriber.transcribe_audio_chunk(data)
