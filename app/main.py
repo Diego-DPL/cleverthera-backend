@@ -29,12 +29,29 @@ credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 #PRODUCCION
 # Cargar las credenciales de Google Cloud desde una variable de entorno en HEROKU
-if credentials_path:
-    # Convertir el string JSON a un objeto de credenciales
-    credentials_info = json.loads(credentials_path)
-    credentials = service_account.Credentials.from_service_account_info(credentials_info)
-else:
-    raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o el archivo no existe")
+# if credentials_path:
+#     # Convertir el string JSON a un objeto de credenciales
+#     credentials_info = json.loads(credentials_path)
+#     credentials = service_account.Credentials.from_service_account_info(credentials_info)
+# else:
+#     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o el archivo no existe")
+
+# Cargar credenciales para Google Cloud
+if os.getenv("ENV") == "production":  # En Heroku
+    print("++++++ Estamos en HEROKU = PRODUCCION ++++++")
+    # En producción, la variable de entorno contiene las credenciales como JSON string
+    if credentials_path:
+        credentials_info = json.loads(credentials_path)
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+    else:
+        raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS en Heroku")
+else:  # En desarrollo (local)
+    print("++++++ Estamos en LOCAL = LOCAL ++++++")
+    if credentials_path and os.path.exists(credentials_path):
+        credentials = service_account.Credentials.from_service_account_file(credentials_path)
+    else:
+        raise ValueError("No se encontró el archivo de credenciales local o la variable de entorno")
+
 
 app = FastAPI()
 
