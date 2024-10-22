@@ -11,21 +11,26 @@ from .utils.transcription import Transcriber
 
 load_dotenv()
 
-# Cargar las credenciales desde la variable de entorno
+# Escribir las credenciales en un archivo temporal en Heroku
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 if credentials_json:
     try:
-        # Convertir el string JSON en un diccionario y cargar las credenciales
-        credentials_info = json.loads(credentials_json)
-        credentials = service_account.Credentials.from_service_account_info(credentials_info)
-        print("Credenciales cargadas correctamente")
+        # Guardar las credenciales en un archivo temporal
+        credentials_path = "/tmp/credentials.json"
+        with open(credentials_path, "w") as f:
+            f.write(credentials_json)
+        
+        # Cargar las credenciales desde el archivo
+        credentials = service_account.Credentials.from_service_account_file(credentials_path)
+        print("Credenciales cargadas correctamente desde archivo temporal")
     except json.JSONDecodeError as e:
         raise ValueError(f"Error en el formato JSON de las credenciales: {str(e)}")
     except Exception as e:
         raise ValueError(f"Error al cargar las credenciales de Google: {str(e)}")
 else:
     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o está vacía")
+
 app = FastAPI()
 
 @app.websocket("/ws/audio")
