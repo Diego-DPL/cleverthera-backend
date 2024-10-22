@@ -1,76 +1,37 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-import asyncio
-import os
-import json
-from google.oauth2 import service_account
 import os
 import json
 from google.oauth2 import service_account
 from dotenv import load_dotenv
-
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import asyncio
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from .utils.transcription import Transcriber
 
 load_dotenv()
 
-# Cargar las credenciales de Google Cloud desde una variable de entorno
-print("cargando Variable de entorno GOOGLE_APPLICATION_CREDENTIALS")
 credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-#DESCOMENTAR PARA LOCAL
-# Cargar las credenciales de Google Cloud desde una variable de entorno LOCAL
-# if credentials_path and os.path.exists(credentials_path):
-#     # Cargar las credenciales desde el archivo JSON
-#     credentials = service_account.Credentials.from_service_account_file(credentials_path)
-# else:
-#     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o el archivo no existe")
-
-#PRODUCCION
-# Cargar las credenciales de Google Cloud desde una variable de entorno en HEROKU
-# if credentials_path:
-#     # Convertir el string JSON a un objeto de credenciales
-#     credentials_info = json.loads(credentials_path)
-#     credentials = service_account.Credentials.from_service_account_info(credentials_info)
-# else:
-#     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o el archivo no existe")
-
-# Cargar credenciales para Google Cloud
-if os.getenv("ENV") == "production":  # En Heroku
-    print("++++++ Estamos en HEROKU = PRODUCCION ++++++")
-    # En producción, la variable de entorno contiene las credenciales como JSON string
+# En producción, cargar las credenciales desde la variable de entorno JSON
+if os.getenv("ENV") == "production":  # Configura esta variable de entorno en Heroku
     if credentials_path:
-        credentials_info = json.loads(credentials_path)
-        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        # Heroku almacena el JSON completo de las credenciales en una variable de entorno
+        try:
+            credentials_info = json.loads(credentials_path)
+            credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        except json.JSONDecodeError:
+            raise ValueError("Las credenciales de Google no están en un formato JSON válido.")
     else:
         raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS en Heroku")
-else:  # En desarrollo (local)
-    print("++++++ Estamos en LOCAL = LOCAL ++++++")
+else:
+    # En local, cargar desde un archivo
     if credentials_path and os.path.exists(credentials_path):
         credentials = service_account.Credentials.from_service_account_file(credentials_path)
     else:
         raise ValueError("No se encontró el archivo de credenciales local o la variable de entorno")
 
-
 app = FastAPI()
-
-# Habilitar CORS para permitir solicitudes desde el frontend en Vercel
-origins = [
-    "https://www.cleverthera.com",  # tu dominio
-    "https://cleverthera.com",  # tu dominio
-    #"http://localhost",  # Para pruebas locales si es necesario
-    #"http://localhost:3000",  # Si estás probando localmente en un puerto específico
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,  
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 @app.websocket("/ws/audio")
 async def websocket_endpoint(websocket: WebSocket):
