@@ -17,6 +17,7 @@ from .utils.transcription import Transcriber
 load_dotenv()
 
 # Cargar las credenciales de Google Cloud desde una variable de entorno
+print("cargando Variable de entorno GOOGLE_APPLICATION_CREDENTIALS")
 credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 #DESCOMENTAR PARA LOCAL
@@ -73,7 +74,7 @@ app.add_middleware(
 
 @app.websocket("/ws/audio")
 async def websocket_endpoint(websocket: WebSocket):
-    print("llamada a la API")
+    print("llamando a la API")
     await websocket.accept()
     message_queue = asyncio.Queue()
     transcriber = Transcriber(message_queue)
