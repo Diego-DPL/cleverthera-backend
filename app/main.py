@@ -12,21 +12,17 @@ from google.cloud import speech_v1p1beta1 as speech
 
 load_dotenv()
 
-# Cargar las credenciales desde la variable de entorno
+# Cargar las credenciales directamente desde la variable de entorno
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 print(f"Contenido de GOOGLE_APPLICATION_CREDENTIALS: {credentials_json}")
 
 if credentials_json:
     try:
-        print("Cargando credenciales de Google")
-        # Escribir las credenciales en un archivo temporal
-        credentials_path = "/tmp/credentials.json"
-        with open(credentials_path, "w") as f:
-            f.write(credentials_json)
-        
-        # Cargar las credenciales desde el archivo
-        credentials = service_account.Credentials.from_service_account_file(credentials_path)
-        print("Credenciales cargadas correctamente desde archivo temporal")
+        print("Cargando credenciales de Google desde la variable de entorno")
+        # Parsear el JSON de las credenciales
+        credentials_dict = json.loads(credentials_json)
+        credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+        print("Credenciales cargadas correctamente")
     except json.JSONDecodeError as e:
         raise ValueError(f"Error en el formato JSON de las credenciales: {str(e)}")
     except Exception as e:
@@ -49,22 +45,22 @@ app = FastAPI()
 
 @app.websocket("/ws/audio")
 async def websocket_endpoint(websocket: WebSocket):
-    print("llamando a la API")
+    print("Llamando a la API")
     await websocket.accept()
     print("Cliente conectado")
     message_queue = asyncio.Queue()
-    print("lista de mensajes")
+    print("Lista de mensajes")
     transcriber = Transcriber(message_queue)
     print("Transcriber creado")
 
     try:
         send_task = asyncio.create_task(send_messages(websocket, message_queue))
-        print("task creada")
+        print("Task creada")
 
         while True:
             data = await websocket.receive_bytes()
             transcriber.transcribe_audio_chunk(data)
-            print("enviando datos al cliente")
+            print("Enviando datos al cliente")
     except WebSocketDisconnect:
         print("Cliente desconectado")
         transcriber.close()
