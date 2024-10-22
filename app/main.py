@@ -19,9 +19,20 @@ load_dotenv()
 # Cargar las credenciales de Google Cloud desde una variable de entorno
 credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-if credentials_path and os.path.exists(credentials_path):
-    # Cargar las credenciales desde el archivo JSON
-    credentials = service_account.Credentials.from_service_account_file(credentials_path)
+#DESCOMENTAR PARA LOCAL
+# Cargar las credenciales de Google Cloud desde una variable de entorno LOCAL
+# if credentials_path and os.path.exists(credentials_path):
+#     # Cargar las credenciales desde el archivo JSON
+#     credentials = service_account.Credentials.from_service_account_file(credentials_path)
+# else:
+#     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o el archivo no existe")
+
+#PRODUCCION
+# Cargar las credenciales de Google Cloud desde una variable de entorno en HEROKU
+if credentials_path:
+    # Convertir el string JSON a un objeto de credenciales
+    credentials_info = json.loads(credentials_path)
+    credentials = service_account.Credentials.from_service_account_info(credentials_info)
 else:
     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o el archivo no existe")
 
