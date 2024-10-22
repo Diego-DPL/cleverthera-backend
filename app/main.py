@@ -8,15 +8,16 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from .utils.transcription import Transcriber
+from google.cloud import speech_v1p1beta1 as speech
 
 load_dotenv()
 
-# Escribir las credenciales en un archivo temporal en Heroku
+# Cargar las credenciales desde la variable de entorno
 credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 if credentials_json:
     try:
-        # Guardar las credenciales en un archivo temporal
+        # Escribir las credenciales en un archivo temporal
         credentials_path = "/tmp/credentials.json"
         with open(credentials_path, "w") as f:
             f.write(credentials_json)
@@ -30,6 +31,16 @@ if credentials_json:
         raise ValueError(f"Error al cargar las credenciales de Google: {str(e)}")
 else:
     raise ValueError("No se encontró la variable de entorno GOOGLE_APPLICATION_CREDENTIALS o está vacía")
+
+# Prueba la conexión con Google Speech API
+def prueba_conexion_google_speech():
+    try:
+        client = speech.SpeechClient(credentials=credentials)
+        print("Conexión a Google Speech API exitosa.")
+    except Exception as e:
+        print(f"Error al conectar con Google Speech API: {e}")
+
+prueba_conexion_google_speech()
 
 app = FastAPI()
 
