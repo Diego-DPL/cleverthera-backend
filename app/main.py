@@ -75,6 +75,7 @@ async def send_messages(websocket: WebSocket, message_queue: asyncio.Queue):
     try:
         while True:
             message = await message_queue.get()
+            print(f"Enviando mensaje al cliente: {message}")
             await websocket.send_json(message)
     except Exception as e:
         print(f"Error al enviar mensajes: {e}")
