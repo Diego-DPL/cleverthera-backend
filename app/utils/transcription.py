@@ -48,20 +48,15 @@ class Transcriber:
             single_utterance=False,
         )
 
-        # Crear una nueva cola para esta sesión
+        # Crear una nueva cola para esta sesión y vaciar la anterior
         self.requests_queue = queue.Queue()
 
         def request_generator():
-            is_first_request = True
             try:
                 while self.is_active:
                     audio_content = self.requests_queue.get()
                     if audio_content is None:
                         break
-                    if is_first_request:
-                        print("Enviando streaming_config en la primera solicitud")
-                        yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
-                        is_first_request = False
                     print("Enviando fragmento de audio a la API de Speech-to-Text")
                     yield speech.StreamingRecognizeRequest(audio_content=audio_content)
             except Exception as e:
