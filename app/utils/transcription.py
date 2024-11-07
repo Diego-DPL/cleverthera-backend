@@ -48,7 +48,7 @@ class Transcriber:
             single_utterance=False,
         )
 
-        # Crear una nueva cola para esta sesión y vaciar la anterior
+        # Crear una nueva cola para esta sesión
         self.requests_queue = queue.Queue()
 
         def request_generator():
@@ -67,7 +67,17 @@ class Transcriber:
             # Pasar streaming_config y requests como argumentos
             responses = client.streaming_recognize(streaming_config, requests)
 
+            # Iniciar el temporizador
+            start_time = time.time()
+
             for response in responses:
+                # Verificar si han transcurrido 200 segundos
+                if time.time() - start_time > 200:
+                    print("Tiempo límite alcanzado, reiniciando el streaming.")
+                    # Detener el generador y salir del bucle
+                    self.requests_queue.put(None)
+                    break
+
                 for result in response.results:
                     if result.is_final:
                         alternative = result.alternatives[0]
@@ -91,10 +101,6 @@ class Transcriber:
                         asyncio.run_coroutine_threadsafe(
                             self.message_queue.put(message), self.loop
                         )
-        except google.api_core.exceptions.OutOfRange as e:
-            print(f"Sesión de streaming excedida. Reiniciando el streaming: {e}")
-            # Salir del método para que _start_streaming() lo reinicie
-            return
         except Exception as e:
             print(f"Error en _streaming_recognize: {e}")
             traceback.print_exc()
