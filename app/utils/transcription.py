@@ -49,6 +49,8 @@ class Transcriber:
         )
 
         def generator():
+            # Enviar primero el streaming_config en la solicitud
+            yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
             start_time = time.time()
             while self.is_active:
                 if time.time() - start_time > 200:
@@ -60,7 +62,7 @@ class Transcriber:
                 yield speech.StreamingRecognizeRequest(audio_content=data)
 
         requests = generator()
-        responses = client.streaming_recognize(streaming_config=streaming_config, requests=requests)
+        responses = client.streaming_recognize(requests)
 
         # Procesar las respuestas en un hilo separado
         threading.Thread(target=self._process_responses, args=(responses,), daemon=True).start()
