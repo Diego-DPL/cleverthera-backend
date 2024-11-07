@@ -1,8 +1,10 @@
+# transcription.py
 import asyncio
 from google.cloud import speech_v1p1beta1 as speech
 import threading
 import queue
 import traceback
+import google.api_core.exceptions
 
 # Mapeo de canales a hablantes
 speaker_mapping = {
@@ -12,18 +14,20 @@ speaker_mapping = {
 
 class Transcriber:
     def __init__(self, message_queue: asyncio.Queue, credentials):
-        # Se pasan las credenciales al cliente de Google Speech
-        self.client = speech.SpeechClient(credentials=credentials)
-        self.requests_queue = queue.Queue()
+        self.credentials = credentials
         self.message_queue = message_queue
         self.is_active = True
+        self.requests_queue = queue.Queue()
         self.loop = asyncio.get_event_loop()
         threading.Thread(target=self._start_streaming, daemon=True).start()
 
     def _start_streaming(self):
-        self._streaming_recognize()
+        while self.is_active:
+            self._streaming_recognize()
 
     def _streaming_recognize(self):
+        client = speech.SpeechClient(credentials=self.credentials)
+
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
             sample_rate_hertz=48000,
@@ -42,19 +46,20 @@ class Transcriber:
             single_utterance=False,
         )
 
-        # Generador de solicitudes síncrono
         def request_generator():
-            while self.is_active:
-                audio_content = self.requests_queue.get()
-                if audio_content is None:
-                    break
-                print("Enviando fragmento de audio a la API de Speech-to-Text")
-                yield speech.StreamingRecognizeRequest(audio_content=audio_content)
+            try:
+                while self.is_active:
+                    audio_content = self.requests_queue.get()
+                    if audio_content is None:
+                        break
+                    print("Enviando fragmento de audio a la API de Speech-to-Text")
+                    yield speech.StreamingRecognizeRequest(audio_content=audio_content)
+            except Exception as e:
+                print(f"Error en request_generator: {e}")
 
-        # Procesar las respuestas
         try:
             requests = request_generator()
-            responses = self.client.streaming_recognize(streaming_config, requests)
+            responses = client.streaming_recognize(streaming_config, requests)
 
             for response in responses:
                 for result in response.results:
@@ -80,6 +85,12 @@ class Transcriber:
                         asyncio.run_coroutine_threadsafe(
                             self.message_queue.put(message), self.loop
                         )
+        except google.api_core.exceptions.OutOfRange as e:
+            print(f"Sesión de streaming excedida. Reiniciando el streaming: {e}")
+            # Reiniciar el streaming
+            # Es posible que desees limpiar la cola antes de reiniciar
+            self.requests_queue.queue.clear()
+            self._streaming_recognize()
         except Exception as e:
             print(f"Error en _streaming_recognize: {e}")
             traceback.print_exc()
