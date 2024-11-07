@@ -5,6 +5,7 @@ import threading
 import queue
 import traceback
 import google.api_core.exceptions
+import time
 
 # Mapeo de canales a hablantes
 speaker_mapping = {
@@ -17,13 +18,14 @@ class Transcriber:
         self.credentials = credentials
         self.message_queue = message_queue
         self.is_active = True
-        self.requests_queue = queue.Queue()
         self.loop = asyncio.get_event_loop()
         threading.Thread(target=self._start_streaming, daemon=True).start()
 
     def _start_streaming(self):
         while self.is_active:
             self._streaming_recognize()
+            # Agregar un breve retraso para evitar bucles rápidos en caso de error
+            time.sleep(1)
 
     def _streaming_recognize(self):
         client = speech.SpeechClient(credentials=self.credentials)
@@ -45,6 +47,9 @@ class Transcriber:
             interim_results=False,
             single_utterance=False,
         )
+
+        # Crear una nueva cola para esta sesión
+        self.requests_queue = queue.Queue()
 
         def request_generator():
             try:
@@ -87,18 +92,23 @@ class Transcriber:
                         )
         except google.api_core.exceptions.OutOfRange as e:
             print(f"Sesión de streaming excedida. Reiniciando el streaming: {e}")
-            # Reiniciar el streaming
-            # Es posible que desees limpiar la cola antes de reiniciar
-            self.requests_queue.queue.clear()
-            self._streaming_recognize()
+            # Salir del método para que _start_streaming() lo reinicie
+            return
         except Exception as e:
             print(f"Error en _streaming_recognize: {e}")
             traceback.print_exc()
+            # Salir del método para que _start_streaming() lo reinicie
+            return
 
     def transcribe_audio_chunk(self, audio_chunk: bytes):
         print(f"Received audio chunk of size {len(audio_chunk)} bytes")
-        self.requests_queue.put(audio_chunk)
+        if self.is_active:
+            try:
+                self.requests_queue.put(audio_chunk)
+            except Exception as e:
+                print(f"Error al agregar fragmento de audio a la cola: {e}")
 
     def close(self):
         self.is_active = False
+        # Poner None en la cola para finalizar el generador
         self.requests_queue.put(None)
