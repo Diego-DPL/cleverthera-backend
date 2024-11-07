@@ -52,6 +52,8 @@ class Transcriber:
         self.requests_queue = queue.Queue()
 
         def request_generator():
+            # Enviar el streaming_config en la primera solicitud
+            yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
             try:
                 while self.is_active:
                     audio_content = self.requests_queue.get()
@@ -64,7 +66,8 @@ class Transcriber:
 
         try:
             requests = request_generator()
-            responses = client.streaming_recognize(streaming_config, requests)
+            # Remover streaming_config de los parámetros
+            responses = client.streaming_recognize(requests)
 
             for response in responses:
                 for result in response.results:
