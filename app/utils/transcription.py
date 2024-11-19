@@ -1,6 +1,6 @@
 # transcription.py
 import asyncio
-from google.cloud import speech_v1p1beta1 as google_speech
+from google.cloud import speech_v1p1beta1 as speech
 import threading
 import queue
 import traceback
@@ -27,11 +27,11 @@ class Transcriber:
             self._streaming_recognize()
 
     def _streaming_recognize(self):
-        client = google_speech.SpeechClient(credentials=self.credentials)
+        client = speech.SpeechClient(credentials=self.credentials)
         print(f"Tipo de client: {type(client)}")
 
-        config = google_speech.RecognitionConfig(
-            encoding=google_speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
             sample_rate_hertz=48000,
             language_code='es-ES',
             audio_channel_count=2,
@@ -42,7 +42,7 @@ class Transcriber:
             use_enhanced=True
         )
 
-        streaming_config = google_speech.StreamingRecognitionConfig(
+        streaming_config = speech.StreamingRecognitionConfig(
             config=config,
             interim_results=False,
             single_utterance=False,
@@ -54,14 +54,14 @@ class Transcriber:
 
         def request_generator():
             # Enviar el streaming_config en la primera solicitud
-            yield google_speech.StreamingRecognizeRequest(streaming_config=streaming_config)
+            yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
             try:
                 while self.is_active:
                     audio_content = self.requests_queue.get()
                     if audio_content is None:
                         break
                     print("Enviando fragmento de audio a la API de Speech-to-Text")
-                    yield google_speech.StreamingRecognizeRequest(audio_content=audio_content)
+                    yield speech.StreamingRecognizeRequest(audio_content=audio_content)
             except Exception as e:
                 print(f"Error en request_generator: {e}")
 
