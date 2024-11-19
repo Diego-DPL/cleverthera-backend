@@ -67,8 +67,8 @@ class Transcriber:
 
         try:
             requests = request_generator()
-            # No pasar streaming_config como argumento
-            responses = client.streaming_recognize(requests)
+            # Pasar 'requests' como argumento de palabra clave
+            responses = client.streaming_recognize(requests=requests)
 
             # Iniciar el temporizador
             start_time = time.time()
