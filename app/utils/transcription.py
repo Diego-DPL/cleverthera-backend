@@ -4,6 +4,8 @@ from google.cloud import speech_v1p1beta1 as speech
 import threading
 import queue
 import traceback
+import time
+import google.api_core.exceptions
 
 # Mapeo de canales a hablantes
 speaker_mapping = {
@@ -16,8 +18,9 @@ class Transcriber:
         self.credentials = credentials
         self.message_queue = message_queue
         self.is_active = True
-        self.requests_queue = queue.Queue()
         self.loop = asyncio.get_event_loop()
+        self.requests_queue = queue.Queue()
+        self.lock = threading.Lock()
         threading.Thread(target=self._start_streaming, daemon=True).start()
 
     def _start_streaming(self):
@@ -47,6 +50,8 @@ class Transcriber:
 
         def request_generator():
             try:
+                # Enviar el streaming_config en la primera solicitud
+                yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
                 while self.is_active:
                     audio_content = self.requests_queue.get()
                     if audio_content is None:
@@ -58,9 +63,20 @@ class Transcriber:
 
         try:
             requests = request_generator()
-            responses = client.streaming_recognize(streaming_config, requests)
+            responses = client.streaming_recognize(requests)
+
+            # Iniciar el temporizador
+            start_time = time.time()
 
             for response in responses:
+                # Verificar si han transcurrido 260 segundos (un poco antes de los 300 segundos)
+                if time.time() - start_time > 260:
+                    print("Tiempo límite alcanzado, reiniciando el streaming.")
+                    # Detener el generador y salir del bucle
+                    with self.lock:
+                        self.requests_queue.put(None)
+                    break
+
                 for result in response.results:
                     if result.is_final:
                         alternative = result.alternatives[0]
@@ -84,20 +100,28 @@ class Transcriber:
                         asyncio.run_coroutine_threadsafe(
                             self.message_queue.put(message), self.loop
                         )
+
+            # Después de salir del bucle, limpiar la cola y prepararse para reiniciar
+            with self.lock:
+                while not self.requests_queue.empty():
+                    self.requests_queue.get_nowait()
+
         except google.api_core.exceptions.OutOfRange as e:
             print(f"Sesión de streaming excedida. Reiniciando el streaming: {e}")
             # Reiniciar el streaming
-            # Es posible que desees limpiar la cola antes de reiniciar
-            self.requests_queue.queue.clear()
             self._streaming_recognize()
         except Exception as e:
             print(f"Error en _streaming_recognize: {e}")
             traceback.print_exc()
+            time.sleep(1)  # Pequeña pausa antes de reiniciar
 
     def transcribe_audio_chunk(self, audio_chunk: bytes):
         print(f"Received audio chunk of size {len(audio_chunk)} bytes")
-        self.requests_queue.put(audio_chunk)
+        if self.is_active:
+            with self.lock:
+                self.requests_queue.put(audio_chunk)
 
     def close(self):
         self.is_active = False
-        self.requests_queue.put(None)
+        with self.lock:
+            self.requests_queue.put(None)
