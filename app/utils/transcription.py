@@ -70,8 +70,8 @@ class Transcriber:
             start_time = time.time()
 
             for response in responses:
-                # Verificar si han transcurrido 260 segundos
-                if time.time() - start_time > 260:
+                # Verificar si han transcurrido 240 segundos
+                if time.time() - start_time > 240:
                     print("Tiempo límite alcanzado, reiniciando el streaming.")
                     # Detener el generador y salir del bucle
                     self.requests_queue.put(None)
