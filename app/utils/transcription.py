@@ -52,8 +52,6 @@ class Transcriber:
 
         def request_generator():
             try:
-                # Enviar el streaming_config en la primera solicitud
-                yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
                 while self.is_active:
                     audio_content = self.requests_queue.get()
                     if audio_content is None:
@@ -65,8 +63,8 @@ class Transcriber:
 
         try:
             requests = request_generator()
-            # Pasar 'requests' sin 'streaming_config' como argumento
-            responses = client.streaming_recognize(requests=requests)
+            # Pasar 'streaming_config' y 'requests' al método
+            responses = client.streaming_recognize(streaming_config, requests)
 
             # Iniciar el temporizador
             start_time = time.time()
@@ -102,6 +100,8 @@ class Transcriber:
                         asyncio.run_coroutine_threadsafe(
                             self.message_queue.put(message), self.loop
                         )
+            # Limpiar la cola antes de reiniciar
+            self.requests_queue.queue.clear()
 
         except google.api_core.exceptions.OutOfRange as e:
             print(f"Sesión de streaming excedida. Reiniciando el streaming: {e}")
