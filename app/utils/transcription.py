@@ -52,8 +52,6 @@ class Transcriber:
 
         def request_generator():
             try:
-                # Enviar el streaming_config en la primera solicitud
-                yield speech.StreamingRecognizeRequest(streaming_config=streaming_config)
                 while self.is_active:
                     audio_content = self.requests_queue.get()
                     if audio_content is None:
@@ -65,15 +63,15 @@ class Transcriber:
 
         try:
             requests = request_generator()
-            # Pasar solo 'requests' al método
-            responses = client.streaming_recognize(requests)
+            # Pasar 'streaming_config' y 'requests' al método
+            responses = client.streaming_recognize(streaming_config, requests)
 
             # Iniciar el temporizador
             start_time = time.time()
 
             for response in responses:
-                # Verificar si han transcurrido 260 segundos
-                if time.time() - start_time > 260:
+                # Verificar si han transcurrido 240 segundos
+                if time.time() - start_time > 240:
                     print("Tiempo límite alcanzado, reiniciando el streaming.")
                     # Detener el generador y salir del bucle
                     self.requests_queue.put(None)
