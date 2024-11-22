@@ -63,8 +63,9 @@ class Transcriber:
                     "prefix_padding_ms": 300,
                     "silence_duration_ms": 500
                 },
-                "temperature": 0.6,
-                "max_response_output_tokens": 1024
+                "tool_choice": "auto",
+                "temperature": 0.8,
+                "max_response_output_tokens": "inf"
             }
         }
         await self.websocket.send(json.dumps(session_update_event))
