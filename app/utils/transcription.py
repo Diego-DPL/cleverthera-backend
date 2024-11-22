@@ -4,7 +4,6 @@ import json
 import base64
 from pydub import AudioSegment
 import io
-import time
 
 REALTIME_API_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
 
@@ -38,7 +37,7 @@ class Transcriber:
             "type": "session.update",
             "session": {
                 "modalities": ["text"],
-                "instructions": "Transcribe el audio del usuario en texto.",
+                "instructions": "Transcribe el audio en tiempo real entre un paciente y un psicólogo.",
                 "input_audio_format": "pcm16",
                 "input_audio_transcription": {"model": "whisper-1"},
                 "turn_detection": {
