@@ -69,6 +69,7 @@ class Transcriber:
         }
         await self.websocket.send(json.dumps(session_update_event))
 
+
     async def _send_audio(self):
         while self.is_active:
             audio_chunk = await self.loop.run_in_executor(None, self.audio_queue.get)
