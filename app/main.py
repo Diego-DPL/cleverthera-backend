@@ -1,4 +1,3 @@
-# main.py
 import os
 import json
 from dotenv import load_dotenv
@@ -20,9 +19,8 @@ app = FastAPI()
 
 @app.websocket("/ws/audio")
 async def websocket_endpoint(websocket: WebSocket):
-    print("Llamando a la API")
+    print("Llamando a la API de OpenAI")
     await websocket.accept()
-    print("Cliente conectado")
     message_queue = asyncio.Queue()
     print("Lista de mensajes")
     transcriber = Transcriber(message_queue, openai_api_key)
@@ -34,16 +32,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
         while True:
             data = await websocket.receive_bytes()
-            transcriber.transcribe_audio_chunk(data)
+            await transcriber.transcribe_audio_chunk(data)
             print("Enviando datos al cliente")
     except WebSocketDisconnect:
         print("Cliente desconectado")
-        transcriber.close()
+        await transcriber.close()
         send_task.cancel()
     except Exception as e:
         print(f"Error: {e}")
         await websocket.close()
-        transcriber.close()
+        await transcriber.close()
         send_task.cancel()
 
 async def send_messages(websocket: WebSocket, message_queue: asyncio.Queue):
