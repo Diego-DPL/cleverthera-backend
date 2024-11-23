@@ -4,6 +4,7 @@ import json
 import base64
 from pydub import AudioSegment
 import io
+from fastapi import WebSocket
 
 REALTIME_API_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
 
@@ -37,7 +38,7 @@ class Transcriber:
             "type": "session.update",
             "session": {
                 "modalities": ["text"],
-                "instructions": "Transcribe el audio en tiempo real entre un paciente y un psicólogo.",
+                "instructions": "Transcribe el audio en tiempo real.",
                 "input_audio_format": "pcm16",
                 "input_audio_transcription": {"model": "whisper-1"},
                 "turn_detection": {
@@ -99,7 +100,7 @@ class Transcriber:
     async def _convert_audio_to_pcm(self, audio_chunk: bytes):
         try:
             audio = AudioSegment.from_file(io.BytesIO(audio_chunk), format="webm")
-            pcm_audio = audio.set_frame_rate(24000).set_sample_width(2).set_channels(1).raw_data
+            pcm_audio = audio.set_frame_rate(16000).set_sample_width(2).set_channels(1).raw_data
             return pcm_audio
         except Exception as e:
             print(f"Error al convertir el audio: {e}")
@@ -108,3 +109,31 @@ class Transcriber:
     async def close(self):
         self.is_active = False
         await self.audio_queue.put(None)
+
+# Main handler
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    message_queue = asyncio.Queue()
+
+    transcriber = Transcriber(
+        message_queue=message_queue,
+        openai_api_key="your_openai_api_key_here"
+    )
+
+    try:
+        print("Cliente conectado")
+        asyncio.create_task(transcriber.start())
+
+        while True:
+            data = await websocket.receive_bytes()
+            await transcriber.transcribe_audio_chunk(data)
+
+            while not message_queue.empty():
+                message = await message_queue.get()
+                await websocket.send_json(message)
+
+    except Exception as e:
+        print(f"Error en el WebSocket: {e}")
+    finally:
+        await transcriber.close()
+        await websocket.close()
