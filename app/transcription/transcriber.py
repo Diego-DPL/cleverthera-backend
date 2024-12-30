@@ -7,7 +7,7 @@ import websockets
 from pydub import AudioSegment
 import io
 
-REALTIME_API_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
+REALTIME_API_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17"
 
 class Transcriber:
     def __init__(self, message_queue: asyncio.Queue, openai_api_key: str):

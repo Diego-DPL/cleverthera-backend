@@ -1,23 +1,23 @@
+# archivo: main.py (o app.py)
 import os
-import json
-import asyncio
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import requests
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# main.py
-from .transcription.transcriber import Transcriber
-
 load_dotenv()
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("Falta la clave de la API de OpenAI en .env")
 
 app = FastAPI()
 
-# Configurar CORS si tu front está en localhost:3000 o en otro dominio.
+# Ajusta los orígenes CORS a tu frontend en React
 origins = [
     "http://localhost:3000",
     "https://www.cleverthera.com",
-    "https://cleverthera.com"   # Ajusta con el dominio donde esté tu front en producción
+    "https://cleverthera.com"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -27,59 +27,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("La clave de la API de OpenAI no está configurada en las variables de entorno (.env).")
+@app.get("/session")
+def create_ephemeral_session():
+    """
+    Genera una ephemeral key llamando a la API Realtime de OpenAI.
+    Devuelve la respuesta JSON al frontend.
+    """
+    url = "https://api.openai.com/v1/realtime/sessions"
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",  # Tu API key principal (server-side)
+        "Content-Type": "application/json",
+    }
 
-@app.websocket("/ws/audio")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    print("Cliente conectado al endpoint /ws/audio")
+    # Ajusta el modelo al que quieras conectarte (por ej: gpt-4o-realtime-preview-2024-12-17)
+    payload = {
+        "model": "gpt-4o-realtime-preview-2024-12-17"
+        # "voice": "verse", # Ejemplo si quisieras TTS, etc.
+    }
 
-    message_queue = asyncio.Queue()
-    transcriber = Transcriber(message_queue, OPENAI_API_KEY)
+    resp = requests.post(url, headers=headers, json=payload)
+    if resp.status_code != 200 and resp.status_code != 201:
+        return {"error": f"OpenAI Realtime error: {resp.text}"}
 
-    try:
-        # Crear tarea que maneja la conexión con la API Realtime de OpenAI.
-        transcriber_task = asyncio.create_task(transcriber.start())
-
-        # Tareas de recepción y envío:
-        receive_task = asyncio.create_task(receive_audio(websocket, transcriber))
-        send_task = asyncio.create_task(send_transcriptions(websocket, message_queue))
-
-        await asyncio.gather(transcriber_task, receive_task, send_task)
-
-    except WebSocketDisconnect:
-        print("WebSocket desconectado: el cliente cerró la conexión.")
-        await transcriber.close()
-
-    except Exception as e:
-        print(f"Error en websocket_endpoint: {e}")
-        await transcriber.close()
-        await websocket.close()
-
-
-async def receive_audio(websocket: WebSocket, transcriber: Transcriber):
-    while True:
-        try:
-            audio_chunk = await websocket.receive_bytes()
-            await transcriber.transcribe_audio_chunk(audio_chunk)
-        except WebSocketDisconnect:
-            print("WebSocketDisconnect en receive_audio()")
-            break
-        except Exception as e:
-            print(f"Error al recibir audio: {e}")
-            break
-
-
-async def send_transcriptions(websocket: WebSocket, message_queue: asyncio.Queue):
-    while True:
-        try:
-            message = await message_queue.get()
-            await websocket.send_json(message)
-        except WebSocketDisconnect:
-            print("WebSocketDisconnect en send_transcriptions()")
-            break
-        except Exception as e:
-            print(f"Error al enviar transcripción: {e}")
-            break
+    return resp.json()  # el JSON contiene { client_secret: { value: ..., expires_at: ...}, ...}
