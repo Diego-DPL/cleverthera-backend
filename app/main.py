@@ -1,4 +1,4 @@
-# archivo: main.py (o app.py)
+# main.py
 import os
 import requests
 from fastapi import FastAPI
@@ -13,11 +13,12 @@ if not OPENAI_API_KEY:
 
 app = FastAPI()
 
-# Ajusta los orígenes CORS a tu frontend en React
+# Ajusta los orígenes CORS para tu frontend en React
 origins = [
     "http://localhost:3000",
     "https://www.cleverthera.com",
-    "https://cleverthera.com"
+    "https://cleverthera.com",
+    # Agrega más si lo requieres
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -30,23 +31,36 @@ app.add_middleware(
 @app.get("/session")
 def create_ephemeral_session():
     """
-    Genera una ephemeral key llamando a la API Realtime de OpenAI.
-    Devuelve la respuesta JSON al frontend.
+    Genera una ephemeral key para usar con la Realtime API de OpenAI.
     """
     url = "https://api.openai.com/v1/realtime/sessions"
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",  # Tu API key principal (server-side)
+        "Authorization": f"Bearer {OPENAI_API_KEY}",  # Tu API key principal, solo en backend
         "Content-Type": "application/json",
     }
 
-    # Ajusta el modelo al que quieras conectarte (por ej: gpt-4o-realtime-preview-2024-12-17)
+    # Ajusta el modelo y configuración que quieras por defecto
     payload = {
-        "model": "gpt-4o-realtime-preview-2024-12-17"
-        # "voice": "verse", # Ejemplo si quisieras TTS, etc.
+        "model": "gpt-4o-realtime-preview-2024-12-17",
+        "modalities": ["audio", "text"],
+        "instructions": "Eres un asistente que transcribe audio.",
+        "input_audio_format": "pcm16",  # asumiendo que queremos transcribir en PCM16
+        "input_audio_transcription": {
+            "model": "whisper-1"
+        },
+        "turn_detection": {
+            "type": "server_vad",
+            "threshold": 0.5,
+            "prefix_padding_ms": 300,
+            "silence_duration_ms": 500,
+            "create_response": False
+        },
+        "temperature": 0.0,
+        "max_response_output_tokens": "inf",
     }
 
     resp = requests.post(url, headers=headers, json=payload)
-    if resp.status_code != 200 and resp.status_code != 201:
+    if not resp.ok:
         return {"error": f"OpenAI Realtime error: {resp.text}"}
 
-    return resp.json()  # el JSON contiene { client_secret: { value: ..., expires_at: ...}, ...}
+    return resp.json()  # Retorna el JSON (contiene client_secret y la config de la session)
