@@ -1,11 +1,11 @@
 import asyncio
-import websockets
 import json
 import base64
+import time
+
+import websockets
 from pydub import AudioSegment
 import io
-from fastapi import WebSocket
-import time
 
 REALTIME_API_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
 
@@ -15,23 +15,20 @@ class Transcriber:
         self.openai_api_key = openai_api_key
         self.is_active = True
         self.audio_queue = asyncio.Queue()
+        self.websocket = None
 
     async def start(self):
         headers = {
             "Authorization": f"Bearer {self.openai_api_key}",
             "OpenAI-Beta": "realtime=v1",
         }
-
         try:
-            async with websockets.connect(REALTIME_API_URL, extra_headers=headers) as websocket:
-                self.websocket = websocket
+            async with websockets.connect(REALTIME_API_URL, extra_headers=headers) as ws:
+                self.websocket = ws
                 await self._initialize_session()
-                await asyncio.gather(
-                    self._send_audio(),
-                    self._receive_events()
-                )
+                await asyncio.gather(self._send_audio(), self._receive_events())
         except Exception as e:
-            print(f"Error al conectar con la API Realtime: {e}")
+            print(f"Error al conectar con la API Realtime de OpenAI: {e}")
             self.is_active = False
 
     async def _initialize_session(self):
@@ -48,9 +45,9 @@ class Transcriber:
                     "prefix_padding_ms": 300,
                     "silence_duration_ms": 500,
                 },
-                "temperature": 0.8,
-                "max_response_output_tokens": "inf"
-            }
+                "temperature": 0.0,
+                "max_response_output_tokens": "inf",
+            },
         }
         await self.websocket.send(json.dumps(session_update_event))
 
@@ -61,12 +58,14 @@ class Transcriber:
                 break
 
             audio_base64 = base64.b64encode(audio_chunk).decode("utf-8")
-            audio_event = {"type": "input_audio_buffer.append", "audio": audio_base64}
-
+            audio_event = {
+                "type": "input_audio_buffer.append",
+                "audio": audio_base64
+            }
             try:
                 await self.websocket.send(json.dumps(audio_event))
             except Exception as e:
-                print(f"Error al enviar audio: {e}")
+                print(f"Error al enviar audio a OpenAI: {e}")
                 break
 
     async def _receive_events(self):
@@ -75,22 +74,31 @@ class Transcriber:
                 event = json.loads(message)
                 await self._handle_event(event)
         except websockets.ConnectionClosed:
-            print("Conexión cerrada.")
+            print("Conexión con OpenAI cerrada")
             self.is_active = False
         except Exception as e:
-            print(f"Error al recibir eventos: {e}")
+            print(f"Error al recibir eventos de OpenAI: {e}")
             self.is_active = False
 
     async def _handle_event(self, event):
         if event.get("type") == "conversation.item.created":
             item = event.get("item", {})
             if item.get("type") == "message":
-                transcript = item.get("content", [{}])[0].get("transcript", "")
-                if transcript:
-                    message = {"speaker": "Usuario", "text": transcript, "timestamp": time.time()}
-                    await self.message_queue.put(message)
+                # Entra la transcripción (en "content")
+                transcript_parts = item.get("content", [])
+                if transcript_parts:
+                    full_transcript = " ".join(
+                        fragment.get("transcript", "") for fragment in transcript_parts
+                    ).strip()
+                    if full_transcript:
+                        message = {
+                            "speaker": "Usuario",
+                            "text": full_transcript,
+                            "timestamp": time.time()
+                        }
+                        await self.message_queue.put(message)
         elif event.get("type") == "error":
-            print(f"Error en la API: {event.get('error', {}).get('message')}")
+            print(f"Error en la API Realtime: {event.get('error', {}).get('message')}")
 
     async def transcribe_audio_chunk(self, audio_chunk: bytes):
         if self.is_active:
@@ -101,40 +109,20 @@ class Transcriber:
     async def _convert_audio_to_pcm(self, audio_chunk: bytes):
         try:
             audio = AudioSegment.from_file(io.BytesIO(audio_chunk), format="webm")
-            pcm_audio = audio.set_frame_rate(16000).set_sample_width(2).set_channels(1).raw_data
+            pcm_audio = (
+                audio.set_frame_rate(16000)
+                     .set_sample_width(2)  # 16 bits
+                     .set_channels(1)
+                     .raw_data
+            )
             return pcm_audio
         except Exception as e:
-            print(f"Error al convertir el audio: {e}")
+            print(f"Error al convertir el chunk webm a PCM16: {e}")
             return None
 
     async def close(self):
         self.is_active = False
         await self.audio_queue.put(None)
-
-# Main handler
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    message_queue = asyncio.Queue()
-
-    transcriber = Transcriber(
-        message_queue=message_queue,
-        openai_api_key="your_openai_api_key_here"
-    )
-
-    try:
-        print("Cliente conectado")
-        asyncio.create_task(transcriber.start())
-
-        while True:
-            data = await websocket.receive_bytes()
-            await transcriber.transcribe_audio_chunk(data)
-
-            while not message_queue.empty():
-                message = await message_queue.get()
-                await websocket.send_json(message)
-
-    except Exception as e:
-        print(f"Error en el WebSocket: {e}")
-    finally:
-        await transcriber.close()
-        await websocket.close()
+        if self.websocket:
+            await self.websocket.close()
+            
