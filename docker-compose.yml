@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"  # Mapea el puerto del contenedor al puerto local
+    volumes:
+      - .:/app       # Permite que los cambios locales se reflejen en el contenedor
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}  # Pasa variables de entorno
+      
