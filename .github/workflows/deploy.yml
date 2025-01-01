@@ -1,0 +1,31 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main  # Cambia 'main' por la rama que desees monitorizar
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Checkout el código
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # 2. Configurar SSH para conectarse al servidor EC2
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+    # 3. Conectar y ejecutar comandos en el servidor EC2
+    - name: Deploy on EC2
+      run: |
+        ssh -o StrictHostKeyChecking=no ec2-user@13.38.88.13 << 'EOF'
+        cd /home/ec2-user/cleverthera-backend
+        git pull origin main
+        docker-compose build
+        docker-compose up -d
+        EOF
