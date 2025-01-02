@@ -57,7 +57,7 @@ class Transcriber:
 
     async def _convert_audio_to_pcm(self, audio_chunk: bytes):
         try:
-            audio = AudioSegment.from_file(io.BytesIO(audio_chunk), format="webm")
+            AudioSegment.from_file(io.BytesIO(audio_chunk), format="ogg")
             pcm_audio = (
                 audio.set_frame_rate(16000)
                     .set_sample_width(2)  # 16 bits
