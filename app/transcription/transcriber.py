@@ -41,11 +41,15 @@ class Transcriber:
             except Exception as e:
                 print(f"Error al procesar audio con Whisper: {e}")
 
-    async def transcribe_audio_chunk(self, audio_chunk: bytes):
-        if self.is_active:
-            pcm_audio = await self._convert_audio_to_pcm(audio_chunk)
-            if pcm_audio:
-                await self.audio_queue.put(pcm_audio)
+async def transcribe_audio_chunk(self, audio_chunk: bytes):
+    if self.is_active:
+        # Guarda el chunk en un archivo para depuración
+        with open("archivo.webm", "wb") as f:
+            f.write(audio_chunk)
+
+        pcm_audio = await self._convert_audio_to_pcm(audio_chunk)
+        if pcm_audio:
+            await self.audio_queue.put(pcm_audio)
 
     async def _convert_audio_to_pcm(self, audio_chunk: bytes):
         try:
