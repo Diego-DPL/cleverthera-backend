@@ -1,23 +1,20 @@
 import os
-import json
 import asyncio
-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# main.py
 from .transcription.transcriber import Transcriber
 
 load_dotenv()
 
 app = FastAPI()
 
-# Configurar CORS si tu front está en localhost:3000 o en otro dominio.
+# Configurar CORS
 origins = [
     "http://localhost:3000",
     "https://www.cleverthera.com",
-    "https://cleverthera.com"   # Ajusta con el dominio donde esté tu front en producción
+    "https://cleverthera.com"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -37,27 +34,22 @@ async def websocket_endpoint(websocket: WebSocket):
     print("Cliente conectado al endpoint /ws/audio")
 
     message_queue = asyncio.Queue()
-    transcriber = Transcriber(message_queue)  # No necesitamos la API Key
+    transcriber = Transcriber(message_queue)
 
     try:
-        # Crear tarea que maneja la transcripción con Whisper
         transcriber_task = asyncio.create_task(transcriber.start())
-
-        # Tareas de recepción y envío:
         receive_task = asyncio.create_task(receive_audio(websocket, transcriber))
         send_task = asyncio.create_task(send_transcriptions(websocket, message_queue))
 
         await asyncio.gather(transcriber_task, receive_task, send_task)
 
     except WebSocketDisconnect:
-        print("WebSocket desconectado: el cliente cerró la conexión.")
+        print("WebSocket desconectado.")
         await transcriber.close()
-
     except Exception as e:
         print(f"Error en websocket_endpoint: {e}")
         await transcriber.close()
         await websocket.close()
-
 
 async def receive_audio(websocket: WebSocket, transcriber: Transcriber):
     while True:
@@ -66,7 +58,7 @@ async def receive_audio(websocket: WebSocket, transcriber: Transcriber):
             print(f"Chunk recibido: {len(audio_chunk)} bytes")
             await transcriber.transcribe_audio_chunk(audio_chunk)
         except WebSocketDisconnect:
-            print("WebSocket desconectado en receive_audio()")
+            print("WebSocket desconectado en receive_audio().")
             break
         except Exception as e:
             print(f"Error al recibir audio: {e}")
@@ -77,8 +69,9 @@ async def send_transcriptions(websocket: WebSocket, message_queue: asyncio.Queue
         try:
             message = await message_queue.get()
             await websocket.send_json(message)
+            print(f"Transcripción enviada: {message}")
         except WebSocketDisconnect:
-            print("WebSocketDisconnect en send_transcriptions()")
+            print("WebSocket desconectado en send_transcriptions().")
             break
         except Exception as e:
             print(f"Error al enviar transcripción: {e}")
