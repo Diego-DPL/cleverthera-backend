@@ -57,7 +57,6 @@ class Transcriber:
 
     async def _convert_audio_to_pcm(self, audio_chunk: bytes):
         try:
-            print("Convirtiendo audio de WebM a PCM...")
             audio = AudioSegment.from_file(io.BytesIO(audio_chunk), format="webm")
             pcm_audio = (
                 audio.set_frame_rate(16000)
@@ -65,9 +64,10 @@ class Transcriber:
                     .set_channels(1)
                     .raw_data
             )
-            print("Conversión completada.")
             return pcm_audio
         except Exception as e:
+            with open(f"error_chunk_{time.time()}.webm", "wb") as f:
+                f.write(audio_chunk)
             print(f"Error al convertir el chunk webm a PCM16: {e}")
             return None
 
