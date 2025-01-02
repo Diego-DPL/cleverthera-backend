@@ -52,9 +52,9 @@ class Transcriber:
             audio = AudioSegment.from_file(io.BytesIO(audio_chunk), format="webm")
             pcm_audio = (
                 audio.set_frame_rate(16000)
-                     .set_sample_width(2)  # 16 bits
-                     .set_channels(1)
-                     .raw_data
+                    .set_sample_width(2)  # 16 bits
+                    .set_channels(1)
+                    .raw_data
             )
             return pcm_audio
         except Exception as e:

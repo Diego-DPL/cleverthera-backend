@@ -63,14 +63,14 @@ async def receive_audio(websocket: WebSocket, transcriber: Transcriber):
     while True:
         try:
             audio_chunk = await websocket.receive_bytes()
+            print(f"Chunk recibido: {len(audio_chunk)} bytes")
             await transcriber.transcribe_audio_chunk(audio_chunk)
         except WebSocketDisconnect:
-            print("WebSocketDisconnect en receive_audio()")
+            print("WebSocket desconectado en receive_audio()")
             break
         except Exception as e:
             print(f"Error al recibir audio: {e}")
             break
-
 
 async def send_transcriptions(websocket: WebSocket, message_queue: asyncio.Queue):
     while True:
