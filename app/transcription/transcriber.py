@@ -33,8 +33,10 @@ class Transcriber:
             "ffmpeg",
             "-hide_banner",
             "-loglevel", "error",  # menos spam en logs
+            "re",
             "-f", "webm",          # formato de entrada
             "-i", "pipe:0",        # leemos de stdin
+            "-vn",
             "-ac", "1",            # 1 canal
             "-ar", "16000",        # 16 kHz
             "-f", "s16le",         # salida en PCM 16 bits LE
