@@ -4,6 +4,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+# IMPORTAMOS NUESTRO NUEVO TRANSCRIBER
 from .transcription.transcriber import Transcriber
 
 load_dotenv()
@@ -37,11 +38,16 @@ async def websocket_endpoint(websocket: WebSocket):
     transcriber = Transcriber(message_queue)
 
     try:
-        transcriber_task = asyncio.create_task(transcriber.start())
+        # Iniciamos nuestro Transcriber
+        await transcriber.start()
+
+        # Tareas asíncronas para:
+        # 1) Recibir datos del WebSocket
         receive_task = asyncio.create_task(receive_audio(websocket, transcriber))
+        # 2) Enviar transcripciones al cliente
         send_task = asyncio.create_task(send_transcriptions(websocket, message_queue))
 
-        await asyncio.gather(transcriber_task, receive_task, send_task)
+        await asyncio.gather(receive_task, send_task)
 
     except WebSocketDisconnect:
         print("WebSocket desconectado.")
@@ -56,7 +62,11 @@ async def receive_audio(websocket: WebSocket, transcriber: Transcriber):
         try:
             audio_chunk = await websocket.receive_bytes()
             print(f"Chunk recibido: {len(audio_chunk)} bytes")
-            await transcriber.transcribe_audio_chunk(audio_chunk)
+
+            # En lugar de transcribir chunk a chunk,
+            # simplemente se lo pasamos a FFmpeg:
+            transcriber.write_chunk(audio_chunk)
+
         except WebSocketDisconnect:
             print("WebSocket desconectado en receive_audio().")
             break
@@ -67,6 +77,7 @@ async def receive_audio(websocket: WebSocket, transcriber: Transcriber):
 async def send_transcriptions(websocket: WebSocket, message_queue: asyncio.Queue):
     while True:
         try:
+            # Esperamos un mensaje de la cola (saldrá del _transcription_loop)
             message = await message_queue.get()
             await websocket.send_json(message)
             print(f"Transcripción enviada: {message}")
