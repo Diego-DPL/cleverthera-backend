@@ -27,21 +27,23 @@ class Transcriber:
         """
         print("Transcriber iniciado. Arrancando FFmpeg...")
 
-        # Arrancamos el proceso FFmpeg
-        # Ajusta la ruta de 'ffmpeg' si fuera necesario en tu entorno.
+        # Arrancamos el proceso FFmpeg con flags extra
         cmd = [
             "ffmpeg",
             "-hide_banner",
-            "-loglevel", "error",  # menos spam en logs
-            "re",
-            "-f", "webm",          # formato de entrada
-            "-i", "pipe:0",        # leemos de stdin
-            "-vn",
-            "-ac", "1",            # 1 canal
-            "-ar", "16000",        # 16 kHz
-            "-f", "s16le",         # salida en PCM 16 bits LE
-            "pipe:1"               # escribimos a stdout
+            "-loglevel", "debug",   # Para ver más info en stderr
+            "-fflags", "+genpts",   # Genera pts si faltan
+            "-re",                  # Procesa a "velocidad real"
+            "-err_detect", "ignore_err",  # Ignora algunos errores
+            "-f", "webm",           # formato de entrada
+            "-i", "pipe:0",         # leemos de stdin
+            "-vn",                  # ignorar video
+            "-ac", "1",             # 1 canal
+            "-ar", "16000",         # 16 kHz
+            "-f", "s16le",          # salida en PCM 16 bits LE
+            "pipe:1"                # escribimos a stdout
         ]
+
         self.ffmpeg_process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -52,7 +54,9 @@ class Transcriber:
         # Lanza tareas asíncronas:
         # 1) Lectura de stdout de FFmpeg en bucle
         asyncio.create_task(self._read_ffmpeg_stdout())
-        # 2) Transcripción periódica
+        # 2) Lectura de stderr de FFmpeg (para debug)
+        asyncio.create_task(self._read_ffmpeg_stderr())
+        # 3) Transcripción periódica
         asyncio.create_task(self._transcription_loop())
 
     async def _read_ffmpeg_stdout(self):
@@ -66,7 +70,7 @@ class Transcriber:
 
         while self.is_active:
             try:
-                # Leemos 1024 bytes cada vez (ajusta el tamaño si lo deseas)
+                # Leemos 1024 bytes cada vez
                 chunk = await asyncio.to_thread(self.ffmpeg_process.stdout.read, 1024)
                 if not chunk:
                     # Si chunk es vacío, FFmpeg pudo haber terminado
@@ -80,6 +84,22 @@ class Transcriber:
                 break
 
         print("Finalizando bucle de lectura de stdout de FFmpeg.")
+
+    async def _read_ffmpeg_stderr(self):
+        """
+        Lee continuamente de stderr de FFmpeg (modo debug) para ver si hay errores.
+        """
+        if not self.ffmpeg_process or not self.ffmpeg_process.stderr:
+            return
+
+        while self.is_active:
+            line = await asyncio.to_thread(self.ffmpeg_process.stderr.readline)
+            if not line:
+                break
+            # Imprimimos el stderr (útil para debug)
+            print("[FFmpeg stderr]", line.decode(errors="ignore"))
+
+        print("Finalizando bucle de lectura de stderr de FFmpeg.")
 
     async def _transcription_loop(self, interval=3):
         """
@@ -95,7 +115,7 @@ class Transcriber:
                 if not pcm_data:
                     continue  # no hay nada nuevo
 
-                # Convertimos esos bytes PCM a un WAV en memoria usando pydub (opcional).
+                # Convertimos esos bytes PCM a un WAV en memoria usando pydub.
                 audio_segment = AudioSegment(
                     pcm_data,
                     sample_width=2,   # 16 bits = 2 bytes
